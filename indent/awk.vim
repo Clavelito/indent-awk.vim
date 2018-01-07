@@ -1,8 +1,8 @@
 " Vim indent file
 " Language:        AWK Script
 " Maintainer:      Clavelito <maromomo@hotmail.com>
-" Last Change:     Sat, 18 Nov 2017 19:16:14 +0900
-" Version:         1.80
+" Last Change:     Sun, 07 Jan 2018 13:45:10 +0900
+" Version:         1.81
 "
 " Description:
 "                  let g:awk_indent_switch_labels = 0
@@ -122,7 +122,7 @@ function s:ContinueLineIndent(line, lnum, cline)
   elseif line =~# '\[\s*\%([^,[:blank:]][^,]\{-},\s*\)\+$'
         \ && s:NoClosedPair(lnum, '\M[', '\M]', lnum)
     let ind = s:GetMatchWidth(line, lnum, s:ncp_cnum)
-  elseif line =~# '\]' && s:PairBalance(line, ']', '[') > 0
+  elseif line =~# '\]' && s:PairBalance(line, '\M]', '\M[') > 0
         \ && line =~# '\\$\|,\s*$' && pline =~# '\\$\|,\s*$'
     let ind = s:NestContinueLineIndent(line, lnum, ']', '[')
   elseif line =~# '\<\%(function\|func\)\s\+\h\w*\s*('. s:TailBslash()
@@ -136,14 +136,14 @@ function s:ContinueLineIndent(line, lnum, cline)
         \ && s:NoClosedPair(lnum, '(', ')', lnum)
     let ind = s:GetMatchWidth(line, lnum, s:ncp_cnum)
   elseif line =~# '^\s*return\>.*\\$'
-    let ind = s:GetMatchWidth(line, lnum, '\C\%(\s*return\>\)\@<=.')
+    let ind = s:GetMatchWidth(line, lnum, '\C\<return\>\zs.')
   elseif line =~# '^\s*printf\=\>\s*\%([^,[:blank:]][^,]\{-},\s*\)\+$'
         \ || line =~# '^\s*printf\=\>\%(\s*(\)\@!' && line =~# '\\$'
-    let ind = s:GetMatchWidth(line, lnum, '\C\%(\s*printf\=\>\)\@<=.')
+    let ind = s:GetMatchWidth(line, lnum, '\C\<printf\=\>\zs.')
   elseif line =~# '[^<>=!]==\@!'
         \ && line =~# '\\$\|\%(&&\|||\)\s*$'
         \ && pline !~# '\\$\|\%(&&\|||\)\s*$'
-    let ind = s:GetMatchWidth(line, lnum, '\%([^<>=!]=\)\@<=.')
+    let ind = s:GetMatchWidth(line, lnum, '[^<>=!]=\zs.')
   elseif line =~# '\\$' && a:cline =~# '^\s*{'
     let ind = indent(get(s:JoinContinueLine(line, lnum, 0), 1))
   elseif ind && line =~# '\\$' && pline !~# '\\$\|\%(&&\|||\|,\)\s*$'
@@ -568,8 +568,7 @@ function s:CurrentElseIndent(line, lnum, pline, pnum)
   elseif line =~# '^\s*}\=\s*else\>\%(\s\+if\)\@!'
     let [line, lnum] = s:GetIfLine(line, lnum, 1)
     let [pline, pnum] = s:JoinContinueLine(line, lnum, 1)
-  elseif line =~# '^\s*while\>\s*(.*)'
-        \ && s:AfterParenPairNoStr(lnum, 0)
+  elseif line =~# '^\s*while\>\s*(.*)\%(\s*;\)\=\s*$'
     let [line, lnum] = s:GetDoLine(line, lnum)
     let [pline, pnum] = s:JoinContinueLine(line, lnum, 1)
   endif
@@ -628,11 +627,11 @@ function s:NestContinueLineIndent(line, lnum, i1, i2)
   elseif sum < 0
     return s:NestContinueLineIndent(line, lnum, a:i1, a:i2)
   elseif line =~# '^\s*return\>'
-    return s:GetMatchWidth(line, lnum, '\C\%(\s*return\>\)\@<=.')
+    return s:GetMatchWidth(line, lnum, '\C\<return\>\zs.')
   elseif line =~# '^\s*printf\=\>'
-    return s:GetMatchWidth(line, lnum, '\C\%(\s*printf\=\>\)\@<=.')
+    return s:GetMatchWidth(line, lnum, '\C\<printf\=\>\zs.')
   elseif s:GetHideStringLine(line) =~# '[^<>=!]==\@!'
-    return s:GetMatchWidth(line, lnum, '\%([^<>=!]=\)\@<=.')
+    return s:GetMatchWidth(line, lnum, '[^<>=!]=\zs.')
   else
     return indent(lnum)
   endif
