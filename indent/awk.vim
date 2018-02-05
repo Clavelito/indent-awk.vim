@@ -1,8 +1,8 @@
 " Vim indent file
 " Language:        AWK Script
 " Maintainer:      Clavelito <maromomo@hotmail.com>
-" Last Change:     Sun, 07 Jan 2018 13:45:10 +0900
-" Version:         1.81
+" Last Change:     Mon, 05 Feb 2018 12:16:10 +0900
+" Version:         1.82
 "
 " Description:
 "                  let g:awk_indent_switch_labels = 0
@@ -158,7 +158,7 @@ endfunction
 
 function s:MorePrevLineIndent(pline, pnum, line, lnum)
   let [pline, pnum, ind] = s:PreMorePrevLine(a:pline, a:pnum, a:line, a:lnum)
-  while pnum
+  while pnum && indent(pnum) <= ind
         \ &&
         \ ((pline =~# '^\s*\%(if\|}\=\s*else\s\+if\|for\|while\)\s*(.*)\s*$'
         \ || pline =~# '^\s*switch\s*(.*)\s*$'
@@ -171,8 +171,6 @@ function s:MorePrevLineIndent(pline, pnum, line, lnum)
       break
     elseif pline =~# '^\s*}\=\s*else\>'
       let [pline, pnum] = s:GetIfLine(pline, pnum, 1)
-    elseif pline =~# '^\s*while\>'
-      let [pline, pnum] = s:GetDoLine(pline, pnum)
     endif
     let [pline, pnum] = s:JoinContinueLine(pline, pnum, 1)
   endwhile
@@ -186,9 +184,6 @@ function s:PrevLineIndent(line, lnum, nnum, ind)
         \ || a:line =~# '^\s*}\s*else\s*{\=\s*$'
         \ || a:line =~# '^\s*{\s*$'
     let ind = indent(a:lnum) + shiftwidth()
-  elseif a:line =~# '^\s*do\>\s*\S'
-        \ && s:GetHideStringLine(a:line) !~# '\%(;\|}\)\s*while\>\s*(.*)'
-    let ind = indent(a:lnum)
   elseif (a:line =~# '^\s*\%(if\|else\s\+if\|for\)\s*(.*)\s*{\=\s*$'
         \ || a:line =~# '^\s*}\s*else\s\+if\s*(.*)\s*{\=\s*$'
         \ || a:line =~# '^\s*switch\s*(.*)\s*{\=\s*$'
@@ -200,6 +195,9 @@ function s:PrevLineIndent(line, lnum, nnum, ind)
     let ind = indent(a:lnum) + shiftwidth()
   elseif a:line =~# '{' && s:NoClosedPair(a:lnum, '{', '}', a:nnum)
     let ind = indent(a:lnum) + shiftwidth()
+  elseif a:line =~# '^\s*do\>\s*\S'
+        \ && s:GetHideStringLine(a:line) !~# '\%(;\|}\)\s*while\>\s*(.*)'
+    let ind = indent(a:lnum)
   elseif a:line =~# '^\s*\%(case\|default\)\>'
         \ && g:awk_indent_switch_labels > -1
     let ind = ind + shiftwidth()
@@ -332,15 +330,16 @@ function s:PreMorePrevLine(pline, pnum, line, lnum)
   let pnum = a:pnum
   let line = a:line
   let lnum = a:lnum
-  if a:line =~# '^\s*}\%(\s*else\>\)\@!' || a:line =~# '}\%(\s*;\)\=\s*$'
+  if a:line =~# '^\s*}\%(\s*\%(else\|while\)\>\)\@!'
+        \ || a:line =~# '}\%(\s*;\)\=\s*$'
     let [line, lnum] = s:GetStartBraceLine(line, lnum)
   elseif a:line =~# '^\s*}\=\s*else\>'
     let [line, lnum] = s:GetIfLine(line, lnum, 1)
-  elseif a:line =~# '^\s*while\>'
+  elseif a:line =~# '^\s*}\=\s*while\>'
     let [line, lnum] = s:GetDoLine(line, lnum)
   endif
   if lnum != a:lnum
-        \ && line =~# '^\s*do\s*{\s*$' && a:line =~# '}\%(\s*;\)\=\s*$'
+        \ && line =~# '^\s*do\s*{' && a:line =~# '}\%(\s*;\)\=\s*$'
     let [pline, pnum] = [line, lnum]
   elseif lnum != a:lnum
     let [pline, pnum] = s:JoinContinueLine(line, lnum, 1)
@@ -552,7 +551,7 @@ function s:CurrentElseIndent(line, lnum, pline, pnum)
   let pnum = a:pnum
   let line = a:line
   let lnum = a:lnum
-  if line =~# '^\s*}\%(\s*\<else\>\%(\s\+if\)\@!\)\@!'
+  if line =~# '^\s*}\%(\s*\%(else\>\%(\s\+if\)\@!\|while\>\)\)\@!'
         \ || line =~# '}\%(\s*;\)\=\s*$'
     let [line, lnum] = s:GetStartPairLine(line, '}', '{', lnum, 0)
     if line =~# '^\s*\%(if\|}\=\s*else\s\+if\)\s*(.*)\s*{\s*$'
@@ -568,7 +567,7 @@ function s:CurrentElseIndent(line, lnum, pline, pnum)
   elseif line =~# '^\s*}\=\s*else\>\%(\s\+if\)\@!'
     let [line, lnum] = s:GetIfLine(line, lnum, 1)
     let [pline, pnum] = s:JoinContinueLine(line, lnum, 1)
-  elseif line =~# '^\s*while\>\s*(.*)\%(\s*;\)\=\s*$'
+  elseif line =~# '^\s*}\=\s*while\>\s*(.*)\%(\s*;\)\=\s*$'
     let [line, lnum] = s:GetDoLine(line, lnum)
     let [pline, pnum] = s:JoinContinueLine(line, lnum, 1)
   endif
