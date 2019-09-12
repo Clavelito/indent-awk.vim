@@ -1,8 +1,8 @@
 " Vim indent file
 " Language:        AWK Script
 " Author:          Clavelito <maromomo@hotmail.com>
-" Last Change:     Sun, 28 Apr 2019 14:00:34 +0900
-" Version:         1.83
+" Last Change:     Thu, 12 Sep 2019 14:00:19 +0900
+" Version:         1.84
 "
 " Description:
 "                  let g:awk_indent_switch_labels = 0
@@ -508,7 +508,9 @@ function s:GetMatchWidth(line, lnum, item)
   let line = getline(a:lnum)
   if type(a:item) == type("")
     let msum = match(line, a:item)
-    if a:line =~# '\\$' && strpart(line, msum) =~# '^\s*\\$'
+    if a:line =~# '=\\$' && strpart(line, msum - 1) =~# '^=\\$'
+      let ind = indent(a:lnum)
+    elseif a:line =~# '\\$' && strpart(line, msum) =~# '^\s*\\$'
           \ && s:LessOrMore(line, msum, a:lnum)
       let ind = indent(a:lnum) + shiftwidth()
     else
