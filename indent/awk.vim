@@ -1,8 +1,8 @@
 " Vim indent file
 " Language:        AWK Script
 " Author:          Clavelito <maromomo@hotmail.com>
-" Last Change:     Thu, 12 Sep 2019 14:00:19 +0900
-" Version:         1.84
+" Last Change:     Wed, 18 Sep 2019 14:26:30 +0900
+" Version:         1.85
 "
 " Description:
 "                  let g:awk_indent_switch_labels = 0
@@ -143,12 +143,12 @@ function s:ContinueLineIndent(line, lnum, cline)
         \ || line =~# '^\s*printf\=\>\%(\s*(\)\@!' && line =~# s:continue_tail
     let ind = s:GetMatchWidth(line, lnum, '\C\<printf\=\>\s*\zs.')
   elseif line =~# '[^<>=!]==\@!'
-        \ && line =~# '\\$\|\%(&&\|||\|[,?:]\)\s*$'
+        \ && line =~# '=\@1<!\\$\|\%(&&\|||\|[,?:]\)\s*$'
         \ && pline !~# '\\$\|\%(&&\|||\|[,?:]\)\s*$'
     let ind = s:GetMatchWidth(line, lnum, '[^<>=!]=\s*\zs.')
   elseif line =~# '\\$' && a:cline =~# '^\s*{'
     let ind = indent(get(s:JoinContinueLine(line, lnum, 0), 1))
-  elseif ind && line =~# '\\$' && pline !~# '\\$\|\%(&&\|||\|,\)\s*$'
+  elseif ind && line =~# '=\@1<!\\$' && pline !~# '\\$\|\%(&&\|||\|,\)\s*$'
     let ind = ind + shiftwidth()
   elseif !ind && line =~# '\\$\|\%(&&\|||\)\s*$'
         \ && pline !~# '\\$\|\%(&&\|||\)\s*$'
@@ -508,9 +508,7 @@ function s:GetMatchWidth(line, lnum, item)
   let line = getline(a:lnum)
   if type(a:item) == type("")
     let msum = match(line, a:item)
-    if a:line =~# '=\\$' && strpart(line, msum - 1) =~# '^=\\$'
-      let ind = indent(a:lnum)
-    elseif a:line =~# '\\$' && strpart(line, msum) =~# '^\s*\\$'
+    if a:line =~# '\\$' && strpart(line, msum) =~# '^\s*\\$'
           \ && s:LessOrMore(line, msum, a:lnum)
       let ind = indent(a:lnum) + shiftwidth()
     else
