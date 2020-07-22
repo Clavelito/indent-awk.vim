@@ -1,8 +1,8 @@
 " Vim indent file
 " Language:        AWK Script
 " Author:          Clavelito <maromomo@hotmail.com>
-" Last Change:     Wed, 15 Jul 2020 14:00:50 +0900
-" Version:         1.86
+" Last Change:     Wed, 22 Jul 2020 15:35:59 +0900
+" Version:         1.87
 "
 " Description:
 "                  let g:awk_indent_switch_labels = 0
@@ -96,7 +96,7 @@ function GetAwkIndent()
 
   let ind = s:MorePrevLineIndent(pline, pnum, line, lnum)
   let ind = s:PrevLineIndent(line, lnum, nnum, ind)
-  let ind = s:CurrentLineIndent(cline, line, lnum, pline, ind)
+  let ind = s:CurrentLineIndent(cline, line, lnum, pline, pnum, ind)
   unlet! s:prev_lnum s:ncp_cnum
 
   return ind
@@ -140,11 +140,8 @@ function s:ContinueLineIndent(lnum, cline)
     let ind = s:GetMatchWidth(line, lnum, '\h\w*\s\+\zs\S')
   elseif line =~# '\\$' && a:cline =~# '^\s*{'
     let ind = indent(get(s:JoinContinueLine(line, lnum, 0), 1))
-  elseif ind && line =~# '=\@1<!\\$' && pline !~# s:continue_tail
-    let ind += shiftwidth()
-  elseif !ind && line =~# '\\$\|\%(&&\|||\)\s*$'
-        \ && pline !~# '\\$\|\%(&&\|||\)\s*$'
-    let ind += shiftwidth() * 2
+  elseif line =~# '=\@1<!\\$\|\%(&&\|||\)\s*$' && pline !~# s:continue_tail
+    let ind += ind ? shiftwidth() : shiftwidth() * 2
   endif
 
   return [line, lnum, ind]
@@ -174,11 +171,11 @@ endfunction
 
 function s:PrevLineIndent(line, lnum, nnum, ind)
   let ind = a:ind
-  if a:line =~# '^\s*}\=\s*while\s*(.*)' && s:GetDoLine(a:lnum, 1)
-  elseif a:line =~# '^\s*\%(if\|}\=\s*else\s\+if\|for\|while\)\s*(.*)\s*{\s*$'
-        \ || (a:line =~# '^\s*\%(if\|}\=\s*else\s\+if\|for\|while\)\s*(.*)\s*$'
+  if a:line =~# '^\s*\%(if\|}\=\s*else\s\+if\|for\|while\)\s*(.*)\s*{\s*$'
+        \ || (a:line =~# '^\s*\%(if\|}\=\s*else\s\+if\|for\)\s*(.*)\s*$'
         \ || a:line =~# '^\s*switch\s*(.*)\s*$'
-        \ && g:awk_indent_switch_labels > -1)
+        \ && g:awk_indent_switch_labels > -1
+        \ || a:line =~# '^\s*while\s*(.*)' && !s:GetDoLine(a:lnum, 1))
         \ && s:AfterParenPairNoStr(a:lnum)
         \ || a:line =~# '^\s*\%(}\=\s*else\|do\)\s*{\=\s*$'
         \ || a:line =~# '^\s*\%(case\|default\)\>'
@@ -191,7 +188,7 @@ function s:PrevLineIndent(line, lnum, nnum, ind)
   return ind
 endfunction
 
-function s:CurrentLineIndent(cline, line, lnum, pline, ind)
+function s:CurrentLineIndent(cline, line, lnum, pline, pnum, ind)
   let ind = a:ind
   if a:cline =~# '^\s*}'
     let ind = s:CloseBraceIndent(a:cline, ind)
@@ -209,13 +206,18 @@ function s:CurrentLineIndent(cline, line, lnum, pline, ind)
         \ !((a:line =~# '^\s*switch\>'
         \ || a:line =~# '^\s*{\s*$' && a:pline =~# '^\s*switch\>')
         \ && g:awk_indent_switch_labels
-        \ || (a:line =~# '^\s*}\s*;\=\s*$'
-        \ || a:line =~# '\S\s*}\s*;\=\s*$' && a:line !~# '^\s*case\>')
-        \ && get(s:GetStartBraceLine(a:line, a:lnum), 0) =~# '^\s*case\>')
+        \ || (s:IsCaseBrace(a:line, a:lnum)
+        \ || a:line =~# '^\s*break\>' && s:IsCaseBrace(a:pline, a:pnum)))
     let ind -= shiftwidth()
   endif
 
   return ind
+endfunction
+
+function s:IsCaseBrace(line, lnum)
+  return (a:line =~# '^\s*}'
+        \ || a:line =~# '\S\s*}\s*;\=\s*$' && a:line !~# '^\s*case\>')
+        \ && get(s:GetStartBraceLine(a:line, a:lnum), 0) =~# '^\s*case\>'
 endfunction
 
 function s:PreContinueLine(lnum)
@@ -550,7 +552,7 @@ function s:PairBalance(line, i1, i2)
 endfunction
 
 function s:GetHideStringLine(line, ...)
-  return a:line =~# (a:0 ? '["/#]' : '#')
+  return a:line =~# (a:0 && a:1 ? '["/#]' : '#')
         \ ? s:InsideAwkItemOrCommentStr(a:line, a:0) : a:line
 endfunction
 
