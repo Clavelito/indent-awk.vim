@@ -1,8 +1,8 @@
 " Vim indent file
 " Language:        AWK Script
 " Author:          Clavelito <maromomo@hotmail.com>
-" Last Change:     Wed, 22 Jul 2020 15:35:59 +0900
-" Version:         1.87
+" Last Change:     Wed, 12 Aug 2020 08:54:06 +0900
+" Version:         1.88
 "
 " Description:
 "                  let g:awk_indent_switch_labels = 0
@@ -30,6 +30,15 @@
 "                  let g:awk_indent_tail_bslash = -2
 "                          function_name(  \
 "                              arg1, arg2, arg3)
+"                                                    (default: 2, disable: 0)
+"
+"                  let g:awk_indent_stat_continue = 0
+"                          if (pos <= shiftwidth &&
+"                              continue_line)
+"
+"                  let g:awk_indent_stat_continue = 2
+"                          if (pos <= shiftwidth &&
+"                                  continue_line)
 "                                                    (default: 2, disable: 0)
 
 
@@ -65,6 +74,10 @@ endif
 
 if !exists("g:awk_indent_tail_bslash")
   let g:awk_indent_tail_bslash = 2
+endif
+
+if !exists("g:awk_indent_stat_continue")
+  let g:awk_indent_stat_continue = 2
 endif
 
 function GetAwkIndent()
@@ -129,7 +142,7 @@ function s:ContinueLineIndent(lnum, cline)
   elseif line =~# '('
         \ && line =~# s:continue_tail && s:NoClosedPair(lnum, '(', ')', lnum)
     let ind = s:GetMatchWidth(line, lnum, s:ncp_cnum)
-  elseif line =~# '[-+/*%^]\===\@!.*\%(\w\|)\|\]\)\s*\\$'
+  elseif line =~# '[^<>=!]==\@!.*\%(\w\|)\|\]\)\s*\\$'
         \ && a:cline =~# '^\s*[-+/*%^=]'
     let ind = s:GetMatchWidth(line, lnum, a:cline =~# '^\s*[*][*]' ? '.=' : '=')
   elseif line =~# '[^<>=!]==\@!'
@@ -464,21 +477,27 @@ function s:GetMatchWidth(line, lnum, item)
     endif
   else
     let msum = match(strpart(line, a:item), '\S')
-    if a:line =~# '\\$'
+    let mwid = strdisplaywidth(strpart(line, a:item, msum), a:item - 1)
+    let stom = strdisplaywidth(strpart(line, 0, a:item + msum))
+    if a:line =~# '^\s*\%(if\|}\=\s*else\s\+if\|}\=\s*while\)\>'
+          \ && g:awk_indent_stat_continue > 0
+          \ && stom <= indent(a:lnum) + shiftwidth()
+      let ind = indent(a:lnum)
+            \ + float2nr(shiftwidth() * g:awk_indent_stat_continue)
+    elseif a:line =~# '\\$'
           \ && (g:awk_indent_tail_bslash > 0
-          \ && msum < g:awk_indent_tail_bslash
+          \ && mwid < g:awk_indent_tail_bslash
           \ || g:awk_indent_tail_bslash < 0
-          \ && msum >= g:awk_indent_tail_bslash * -1)
+          \ && mwid >= g:awk_indent_tail_bslash * -1)
           \ && strpart(line, a:item) =~# '^\s*\\$'
           \ && s:LessOrMore(line, a:item, a:lnum)
       let ind = indent(a:lnum) + shiftwidth()
     elseif a:line =~# '\\$' && strpart(line, a:item) =~# '^\s*\\$'
       let ind = strdisplaywidth(strpart(line, 0, a:item))
+    elseif a:line =~# '\\$' && mwid > 2 && getline(v:lnum) =~# '^\s*[&|]'
+      let ind = stom - 3
     else
-      if a:line =~# '\\$' && msum > 2 && getline(v:lnum) =~# '^\s*[&|]'
-        let msum = msum - 3
-      endif
-      let ind = strdisplaywidth(strpart(line, 0, a:item + msum))
+      let ind = stom
     endif
   endif
 
