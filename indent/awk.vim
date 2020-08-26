@@ -1,8 +1,8 @@
 " Vim indent file
 " Language:        AWK Script
 " Author:          Clavelito <maromomo@hotmail.com>
-" Last Change:     Wed, 12 Aug 2020 08:54:06 +0900
-" Version:         1.88
+" Last Change:     Wed, 26 Aug 2020 15:32:20 +0900
+" Version:         1.89
 "
 " Description:
 "                  let g:awk_indent_switch_labels = 0
@@ -236,7 +236,7 @@ endfunction
 function s:PreContinueLine(lnum)
   let [line, lnum] = s:SkipCommentLine(getline(a:lnum), a:lnum, 0)
   let pline = s:GetHideStringLine(get(s:SkipCommentLine(line, lnum, 1), 0))
-  let line = s:GetHideStringLine(line, 1)
+  let line = s:GetHideStringLine(line)
   let ind = indent(lnum)
 
   return [pline, line, lnum, ind]
@@ -570,26 +570,32 @@ function s:PairBalance(line, i1, i2)
   return len(split(a:line, a:i1, 1)) - len(split(a:line, a:i2, 1))
 endfunction
 
-function s:GetHideStringLine(line, ...)
-  return a:line =~# (a:0 && a:1 ? '["/#]' : '#')
-        \ ? s:InsideAwkItemOrCommentStr(a:line, a:0) : a:line
+function s:GetHideStringLine(line)
+  if a:line !~ '[#"/]'
+    return a:line
+  endif
+  let line = substitute(a:line, '\\\@1<!\%(\\\\\)*\\.', "", "g")
+  let line = substitute(line,
+        \ '\[\%(\]\|\^\]\)\=\%(\]\|\[\([:=.]\).\{-}\1\]\)*\]', "", "g")
+  let line = substitute(line, '\("\|/\).\{-}\1', '\1\1', "g")
+  let line = substitute(line, '#.*$', "", "")
+  return line
 endfunction
 
-function s:InsideAwkItemOrCommentStr(...)
-  let line = a:0 ? a:1 : strpart(getline("."), 0, col("."))
+function s:InsideAwkItemOrCommentStr()
+  let line = strpart(getline("."), 0, col("."))
   let sum = match(line, '\S')
   let slash = 0
   let dquote = 0
   let bracket = 0
   let laststr = ""
   let blank = sum
-  let rt_line = matchstr(line, '^\s*')
   let slist = split(line, '\zs')
   let cnum = len(slist)
   while sum < cnum
     let str = slist[sum]
     if str ==# '#' && !slash && !dquote
-      return a:0 ? rt_line : 1
+      return 1
     elseif str ==# '\' && (slash || dquote) && slist[sum + 1] ==# '\'
       let str = laststr
       let sum += 1
@@ -614,27 +620,19 @@ function s:InsideAwkItemOrCommentStr(...)
           \ || slist[sum - blank - 1] =~# s:before_slash1
           \ || join(slist[0 : sum - blank - 1], "") =~# s:before_slash2)
       let slash = 1
-      let rt_line = rt_line. str
     elseif str ==# '/' && slash && laststr !=# '\' && !bracket
       let slash = 0
     elseif str ==# '"' && !dquote && !slash
       let dquote = 1
-      let rt_line = rt_line. str
     elseif str ==# '"' && dquote && laststr !=# '\'
       let dquote = 0
     endif
     let blank = str =~# '\s' ? blank + 1 : 0
     let laststr = str
     let sum += 1
-    if !slash && !dquote
-      let rt_line = rt_line. str
-    elseif a:0 && sum == cnum && (slash || dquote) && rt_line =~# '^\s*/'
-      let rt_line = matchstr(line, '^\s*/')
-      let rt_line .= s:GetHideStringLine(strpart(line, strlen(rt_line)), a:2)
-    endif
   endwhile
 
-  return a:0 ? rt_line : slash || dquote
+  return slash || dquote
 endfunction
 
 function s:AfterParenPairNoStr(lnum)
@@ -654,7 +652,7 @@ function s:AfterParenPairNoStr(lnum)
   endif
   call setpos(".", save_cursor)
 
-  return enum > 0 && estr =~# '^\s*\%(#.*\)\=$' ? 1 : 0
+  return enum > 0 && estr =~# '^\s*\%(#.*\)\=$'
 endfunction
 
 let &cpo = s:cpo_save
