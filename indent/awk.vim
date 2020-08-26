@@ -1,8 +1,8 @@
 " Vim indent file
 " Language:        AWK Script
 " Author:          Clavelito <maromomo@hotmail.com>
-" Last Change:     Wed, 26 Aug 2020 22:37:40 +0900
-" Version:         1.90
+" Last Change:     Thu, 27 Aug 2020 00:57:09 +0900
+" Version:         1.91
 "
 " Description:
 "                  let g:awk_indent_switch_labels = 0
@@ -576,8 +576,9 @@ function s:GetHideStringLine(line)
   endif
   let pt = '\%(\%(\[\^\]\|\[\]\|\[\)\%(\[\([:=.]\).\{-}\1\]\|[^]]\)\{-}\]\|.\)'
   let pt = '/'. pt. '\{-}/'
-  let line = substitute(a:line, '\\\@1<!\%(\\\\\)*\\.', "xx", "g")
-  while 1
+  let line = substitute(a:line, '\\\@1<!\%(\\\\\)*\\.\|//\|""', "xx", "g")
+  let len = 0
+  while len != strlen(line) 
     let len = strlen(line)
     let sl = match(line, '/', 0) + 1
     let dq = match(line, '"', 0) + 1
@@ -585,9 +586,6 @@ function s:GetHideStringLine(line)
       let line = substitute(line, pt, "xx", "")
     elseif dq && dq < sl || dq && !sl
       let line = substitute(line, '"[^"]\{-}"', "xx", "")
-    endif
-    if len == strlen(line)
-      break
     endif
   endwhile
   let line = substitute(line, '#.*$', "", "")
