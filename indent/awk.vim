@@ -1,8 +1,8 @@
 " Vim indent file
 " Language:        AWK Script
 " Author:          Clavelito <maromomo@hotmail.com>
-" Last Change:     Mon, 14 Sep 2020 07:32:11 +0900
-" Version:         2.0
+" Last Change:     Sun, 02 May 2021 07:43:44 +0900
+" Version:         2.1
 "
 " Description:
 "                  let g:awk_indent_switch_labels = 0
@@ -118,7 +118,7 @@ function s:ContinueLineIndent(lnum, cline)
         \ && s:IsTailContinue(line, 1) && !s:IsTailContinue(pline)
     let ind = s:GetMatchWidth(line, lnum, '[^<>=!]=\s*\zs.')
   elseif line =~ '^\s\+\h\w*\s\+[^-+/*%^=\\[:blank:]]'
-        \ && s:IsTailContinue(line, 1) && !s:IsTailContinue(pline)
+        \ && s:IsTailContinue(line) && !s:IsTailContinue(pline)
     let ind = s:GetMatchWidth(line, lnum, '\h\w*\s\+\zs\S')
   elseif s:IsTailContinue(line, 1) && !s:IsTailContinue(pline)
     let ind += ind ? shiftwidth() : shiftwidth() * 2
@@ -402,7 +402,7 @@ endfunction
 
 function s:IsTailContinue(line, ...)
   let pt = '\\$\|\%(&&\|||\|,\|?\|\C\%(\<\%(case\|default\)\>.*\)\@<!:\)\s*$'
-  return a:0 ? a:line =~ '=\@1<!'. pt : a:line =~ pt
+  return a:0 ? a:line =~ '\%([^<>=!]==\@!\)\@2<!'. pt : a:line =~ pt
 endfunction
 
 function s:IsTailCloseBrace(line)
@@ -449,7 +449,7 @@ function s:HideStrComment(line)
     return a:line
   endif
   let rp = '\=repeat("x", strlen(submatch(0)))'
-  let pt = '\%(\[\^\]\|\[\]\|\[\)\%(\[\([:=.]\)[^]:=.]\+\1\]\|[^]]\)*\]\|[^/]'
+  let pt = '\%(\[\^\]\|\[\]\|\[\)\%(\[\([:=.]\)[^]:=.]\+\1\]\|[^]]\)*\]\|[^/[]'
   let pt = '"[^"]*"\|'. s:bfrsla. '\s*\C\zs/\%('. pt. '\)*/'
   let line = substitute(a:line, '\\\@1<!\%(\\\\\)*\\.', rp, 'g')
   let line = substitute(line, pt, rp, 'g')
@@ -458,47 +458,8 @@ function s:HideStrComment(line)
 endfunction
 
 function s:IsStrComment()
-  let line = getline(".")
-  let cnum = col(".")
-  let sum = match(line, '\S')
-  let slash = 0
-  let dquote = 0
-  let bracket = 0
-  let laststr = ""
-  while sum < cnum
-    let str = line[sum]
-    if str == '#' && !slash && !dquote
-      return 1
-    elseif str == '\' && (slash || dquote) && line[sum + 1] == '\'
-      let str = laststr
-      let sum += 1
-    elseif str == '[' && slash && !bracket && laststr != '\'
-      let bracket = 1
-      if line[sum + 1 : sum + 2] == '^]'
-        let sum += 2
-      elseif line[sum + 1] == ']'
-        let sum += 1
-      endif
-    elseif str == '[' && slash && bracket && laststr != '\'
-      if line[sum + 1] =~ '[:=.]'
-        let esum = matchend(line[sum : -1], '^\[\([:=.]\)[^]:=.]\+\1\]')
-        let sum += esum > -1 ? esum - 1 : 0
-      endif
-    elseif str == ']' && slash && bracket && laststr != '\'
-      let bracket = 0
-    elseif str == '/' && !slash && !dquote && line[0 : sum] =~# s:bfrsla.'\s*/$'
-      let slash = 1
-    elseif str == '/' && slash && !bracket && laststr != '\'
-      let slash = 0
-    elseif str == '"' && !dquote && !slash
-      let dquote = 1
-    elseif str == '"' && dquote && laststr != '\'
-      let dquote = 0
-    endif
-    let laststr = str
-    let sum += 1
-  endwhile
-  return slash || dquote
+  let line = s:HideStrComment(getline("."))
+  return strlen(line) < col('.') || line[ : col('.') - 1] =~# 'x$'
 endfunction
 
 let &cpo = s:cpo_save
