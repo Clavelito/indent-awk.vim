@@ -1,9 +1,9 @@
 " Vim indent file
 " Language:        AWK Script
 " Author:          Clavelito <maromomo@hotmail.com>
-" Last Change:     Wed, 19 May 2021 10:26:46 +0900
-" Version:         2.2
-"
+" Last Change:     Fri, 04 Mar 2022 18:30:56 +0900
+" Version:         2.3
+" License:         http://www.apache.org/licenses/LICENSE-2.0
 " Description:
 "                  let g:awk_indent_switch_labels = 0
 "                          switch (label) {
@@ -42,31 +42,32 @@
 "                                                    (default: 2, disable: 0)
 
 
-if exists("b:did_indent")
+if exists('b:did_indent')
   finish
 endif
 let b:did_indent = 1
 
 setlocal indentexpr=GetAwkIndent()
 setlocal indentkeys=0{,},:,!^F,o,O,e,0-,0+,0/,0*,0%,0^,0=,0=**
+setlocal indentkeys+=0=-\ ,0=+\ ,0=/\ ,0=*\ ,0=%\ ,0=^\ ,0=**\ 
 let b:undo_indent = 'setlocal indentexpr< indentkeys<'
 
-if exists("*GetAwkIndent")
+if exists('*GetAwkIndent')
   finish
 endif
 let s:cpo_save = &cpo
 set cpo&vim
 
-if !exists("g:awk_indent_switch_labels")
+if !exists('g:awk_indent_switch_labels')
   let g:awk_indent_switch_labels = 1
 endif
-if !exists("g:awk_indent_curly_braces")
+if !exists('g:awk_indent_curly_braces')
   let g:awk_indent_curly_braces = 0
 endif
-if !exists("g:awk_indent_tail_bslash")
+if !exists('g:awk_indent_tail_bslash')
   let g:awk_indent_tail_bslash = 2
 endif
-if !exists("g:awk_indent_stat_continue")
+if !exists('g:awk_indent_stat_continue')
   let g:awk_indent_stat_continue = 2
 endif
 
@@ -103,12 +104,14 @@ function s:ContinueLineIndent(lnum, cline)
           \ '\%(\[[^[]*\)\{'. (s:ms ? s:ms-1 : 0). '}\[\s*\zs\S')
   elseif line =~ '^\s*[*][*]=\@!.*\%(\w\|)\|\]\)\s*\\$'
     let ind += 1
-  elseif line =~ '[^<>=!]==\@!.*\%(\w\|)\|\]\)\s*\\$'
-        \ && a:cline =~ '^\s*[-+/*%^=]'
+  elseif line =~ '[^<>=!]==\@!.*\%(\w\|)\|\]\)\s*\\$' && a:cline =~ '^\s*='
     let ind = s:GetMatchWidth(line, lnum, '=')
   elseif line =~ '[^<>=!]==\@!\s*[^\\[:blank:]]'
         \ && s:IsTailContinue(line, 1) && !s:IsTailContinue(pline)
+        \ || line =~ '[^<>=!]==\@!.*\%(\w\|)\|\]\)\s*\\$'
+        \ && a:cline =~ '^\s*[-+/*%^]'
     let ind = s:GetMatchWidth(line, lnum, '[^<>=!]=\s*\zs.')
+    let ind = s:HeadOpIndent(line, a:cline, ind)
   elseif line =~ '^\s\+\h\w*\s\+[^-+/*%^=\\[:blank:]]'
         \ && s:IsTailContinue(line) && !s:IsTailContinue(pline)
     let ind = s:GetMatchWidth(line, lnum, '\h\w*\s\+\zs\S')
@@ -225,7 +228,7 @@ function s:SkipCommentLine(lnum, ...)
     let line = getline(lnum)
   elseif !a:0
     let lnum = 0
-    let line = ""
+    let line = ''
   else
     let lnum = a:lnum
     let line = a:1
@@ -267,17 +270,17 @@ function s:PreMorePrevLine(pline, pnum, line, lnum)
 endfunction
 
 function s:GetStartBraceLine(lnum, ...)
-  let pos = getpos(".")
+  let pos = getpos('.')
   call cursor(a:lnum, a:0 ? a:1 : 1)
   let lnum = searchpair('{', '', '}', 'bW', 's:IsStrComment()')
-  call setpos(".", pos)
+  call setpos('.', pos)
   if lnum > 0
     let [line, lnum] = s:JoinContinueLine(lnum, getline(lnum))
     if a:lnum > 0 && a:0 < 2 && line =~# '^\s*}\=\s*else\>'
       let [line, lnum] = s:GetIfLine(lnum)
     endif
   else
-    let line = ""
+    let line = ''
     let lnum = a:lnum
   endif
   return [line, lnum]
@@ -292,29 +295,29 @@ function s:GetIfLine(lnum, ...)
     let expr = 'indent(".") > indent(a:lnum)'
           \. '|| getline(".") =~# "^\\s*}\\=\\s*else\\s\\+if\\>"'
   endif
-  let pos = getpos(".")
+  let pos = getpos('.')
   call cursor(a:0 ? 0 : a:lnum, 1)
   let lnum = searchpair('\C\<if\>', '', '\C\<else\>', 'bW',
         \ 'eval(expr) || s:IsStrComment()')
-  call setpos(".", pos)
+  call setpos('.', pos)
   if lnum > 0
     let line = getline(lnum)
   else
-    let line = ""
+    let line = ''
     let lnum = a:0 ? 0 : a:lnum
   endif
   return a:0 ? lnum : [line, lnum]
 endfunction
 
 function s:GetDoLine(lnum, ...)
-  let pos = getpos(".")
+  let pos = getpos('.')
   call cursor(a:0 && !a:1 ? 0 : a:lnum, 1)
   let lnum = s:SearchDoLoop(a:lnum)
-  call setpos(".", pos)
+  call setpos('.', pos)
   if lnum
     let line = getline(lnum)
   else
-    let line = ""
+    let line = ''
     let lnum = a:0 ? 0 : a:lnum
   endif
   return a:0 ? lnum : [line, lnum]
@@ -324,7 +327,7 @@ function s:SearchDoLoop(snum)
   let lnum = 0
   let onum = 0
   while search('\C^\s*do\>', 'ebW')
-    let pos = getpos(".")
+    let pos = getpos('.')
     let lnum = searchpair('\C\<do\>', '', '\C\<while\>', 'W',
           \ 'indent(".") > indent(pos[1]) || s:IsStrComment()', a:snum)
     if lnum < onum || lnum < 1
@@ -336,7 +339,7 @@ function s:SearchDoLoop(snum)
     endif
     let onum = lnum
     let lnum = 0
-    call setpos(".", pos)
+    call setpos('.', pos)
   endwhile
   return lnum
 endfunction
@@ -352,10 +355,10 @@ function s:TailBslashIndent(l, i)
 endfunction
 
 function s:NestContinueIndent(l, n, cl, i1, i2)
-  let pos = getpos(".")
+  let pos = getpos('.')
   call cursor(a:n, matchend(s:CleanPair(a:l, a:i1, a:i2), '^.*'. a:i2))
   let p = searchpairpos(a:i1, '', a:i2, 'bW', 's:IsStrComment()')
-  call setpos(".", pos)
+  call setpos('.', pos)
   if !p[0] || !p[1] || p[0] == a:n
     return indent(a:n)
   endif
@@ -364,11 +367,12 @@ function s:NestContinueIndent(l, n, cl, i1, i2)
     return s:NestContinueIndent(str, p[0], a:cl, a:i1, a:i2)
   elseif str =~ a:i1. '.'
     let ind = s:GetMatchWidth(str, p[0], '^.*'. a:i1. '\%(\s*\zs\S.\|\zs.\)')
-    return a:cl =~ '^\s*[-+/*%^]' ? ind - 2 : ind
-  elseif str =~ '^\s*[-+/*%^]\|[^<>=!]==\@!' && a:cl =~ '^\s*[-+/*%^]'
+    return s:HeadOpIndent(a:l, a:cl, ind)
+  elseif str =~ '^\s*[-+/*%^]' && a:cl =~ '^\s*[-+/*%^]'
     return s:GetMatchWidth(str, p[0], '[-+/*%^]\zs=\|^\s*[*]\zs[*]\|[-+/%*^=]')
   elseif str =~ '[^<>=!]==\@!.'
-    return s:GetMatchWidth(str, p[0], '[^<>=!]=\s*\zs.')
+    let ind = s:GetMatchWidth(str, p[0], '[^<>=!]=\s*\zs.')
+    return s:HeadOpIndent(a:l, a:cl, ind)
   elseif str =~# '^\s*\%(return\|printf\=\).'
     return s:GetMatchWidth(str, p[0], '^\s*\h\w*\>\s*\zs.')
   endif
@@ -381,11 +385,22 @@ function s:OpenParenIndent(l, n, cl)
   let ind = s:GetMatchWidth(line, a:n, pt. '(\%(\s*\zs[^\\[:blank:]]\|\zs.\)')
   if line =~ '[^-+/*%^=,&|([:blank:]]\s*\\$'
     if line =~ '[^<>=!]==\@!\|^\s*[-+/*%^]' && a:cl =~ '^\s*[-+/*%^]'
-      let ind -= 2
+      let ind = s:HeadOpIndent(a:l, a:cl, ind)
     elseif line =~ '^\s*\%(&&\|||\)'
           \ || ind - 2 > s:GetMatchWidth(line, a:n, pt. '(\zs.')
       let ind -= 3
     endif
+  endif
+  return ind
+endfunction
+
+function s:HeadOpIndent(l, cl, i)
+  let ind = a:i
+  if a:l =~ '[-+/*%^=~]\s*\\$'
+  elseif a:cl =~ '^\s*[-+/*%^][ ]\|^\s*[*][*][ ]'
+    let ind -= 2
+  elseif a:cl =~ '^\s*[-+/*%^]'
+    let ind -= 1
   endif
   return ind
 endfunction
@@ -440,7 +455,7 @@ endfunction
 
 function s:CleanPair(line, i1, i2)
   let line = a:line
-  let last = ""
+  let last = ''
   while last != line
     let last = line
     let line = substitute(line, a:i1. '[^'. a:i1. a:i2. ']*'. a:i2, s:rpt, 'g')
@@ -459,7 +474,7 @@ function s:HideStrComment(line)
 endfunction
 
 function s:IsStrComment()
-  let line = s:HideStrComment(getline("."))
+  let line = s:HideStrComment(getline('.'))
   return strlen(line) < col('.') || line[ : col('.') - 1] =~# 'x$'
 endfunction
 
