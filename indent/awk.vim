@@ -3,10 +3,10 @@ vim9script noclear
 # Vim indent file
 # Language:        AWK Script
 # Author:          Clavelito <maromomo@hotmail.com>
-# Last Change:     Fri, 04 Mar 2022 18:31:14 +0900
-# Version:         3.0
+# Last Change:     Sat, 10 Dec 2022 16:19:53 +0900
+# Version:         3.1
 # License:         http://www.apache.org/licenses/LICENSE-2.0
-# Description:     
+# Description:
 #                  g:awk_indent_switch_labels = 0
 #                        switch (label) {
 #                        case /A/:
@@ -114,7 +114,8 @@ def ContinueLineIndent(alnum: number, cline: string): list<any>
           '\%(\[[^[]*\)\{' .. (ms > 0 ? ms - 1 : 0) .. '}\[\s*\zs\S')
   elseif line =~ '^\s*[*][*]=\@!.*\%(\w\|)\|\]\)\s*\\$'
     ind += 1
-  elseif line =~ '[^<>=!]==\@!.*\%(\w\|)\|\]\)\s*\\$' && cline =~ '^\s*='
+  elseif line =~ '[^<>=!]==\@!.*\%(\w\|)\|\]\)\s*\\$'
+      && (cline =~ '^\s*=' || cline =~ '^\s*[-+/*%^][ ]\|^\s*[*][*][ ]')
     ind = GetMatchWidth(line, lnum, '=')
   elseif line =~ '[^<>=!]==\@!\s*[^\\[:blank:]]'
       && IsTailContinue(line, true) && !IsTailContinue(pline)
@@ -302,7 +303,6 @@ def GetStartBraceLine(alnum: number, ...col: list<any>): list<any>
       rlist[1] = GetIfLine(rlist[1])
       rlist[0] = getline(rlist[1])
     endif
-  else
   endif
   return rlist
 enddef
@@ -410,10 +410,10 @@ def OpenParenIndent(l: string, n: number, cl: string): number
   var line = CleanPair(l, '(', ')')
   var ind = GetMatchWidth(line, n, pt .. '(\%(\s*\zs[^\\[:blank:]]\|\zs.\)')
   if line =~ '[^-+/*%^=,&|([:blank:]]\s*\\$'
-    if line =~ '[^<>=!]==\@!\|^\s*[-+/*%^]' && cl =~ '^\s*[-+/*%^]'
-      ind = HeadOpIndent(l, cl, ind)
-    elseif line =~ '^\s*\%(&&\|||\)'
-        || ind - 2 > GetMatchWidth(line, n, pt .. '(\zs.')
+    var ind2 = GetMatchWidth(line, n, pt .. '(\zs.')
+    if line =~ '[^<>=!]==\@!\|^\s*\%(return\|printf\=\|[-+/*%^]\)' && cl =~ '^\s*[-+/*%^]'
+      ind = HeadOpIndent(l, cl, ind > ind2 + 1 ? ind2 + 1 : ind)
+    elseif line =~ '^\s*\%(&&\|||\)' || ind - 2 > ind2
       ind -= 3
     endif
   endif
