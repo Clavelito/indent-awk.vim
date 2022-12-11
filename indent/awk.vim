@@ -3,8 +3,8 @@ vim9script noclear
 # Vim indent file
 # Language:        AWK Script
 # Author:          Clavelito <maromomo@hotmail.com>
-# Last Change:     Sat, 10 Dec 2022 16:19:53 +0900
-# Version:         3.1
+# Last Change:     Sun, 11 Dec 2022 21:30:40 +0900
+# Version:         3.2
 # License:         http://www.apache.org/licenses/LICENSE-2.0
 # Description:
 #                  g:awk_indent_switch_labels = 0
@@ -121,7 +121,7 @@ def ContinueLineIndent(alnum: number, cline: string): list<any>
       && IsTailContinue(line, true) && !IsTailContinue(pline)
       || line =~ '[^<>=!]==\@!.*\%(\w\|)\|\]\)\s*\\$' && cline =~ '^\s*[-+/*%^]'
     ind = GetMatchWidth(line, lnum, '[^<>=!]=\s*\zs.')
-    ind = HeadOpIndent(line, cline, ind)
+    ind = line[ind] !~ '[-+]' ? HeadOpIndent(line, cline, ind) : ind
   elseif line =~ '^\s\+\h\w*\s\+[^-+/*%^=\\[:blank:]]'
       && IsTailContinue(line) && !IsTailContinue(pline)
     ind = GetMatchWidth(line, lnum, '\h\w*\s\+\zs\S')
@@ -411,7 +411,8 @@ def OpenParenIndent(l: string, n: number, cl: string): number
   var ind = GetMatchWidth(line, n, pt .. '(\%(\s*\zs[^\\[:blank:]]\|\zs.\)')
   if line =~ '[^-+/*%^=,&|([:blank:]]\s*\\$'
     var ind2 = GetMatchWidth(line, n, pt .. '(\zs.')
-    if line =~ '[^<>=!]==\@!\|^\s*\%(return\|printf\=\|[-+/*%^]\)' && cl =~ '^\s*[-+/*%^]'
+    if line =~ '[^<>=!]==\@!\|^\s*[-+/*%^]'
+        && (l[ind] !~ '[-+]' && cl =~ '^\s*[-+/*%^]' || cl =~ '^\s*[-+/*%^][ ]\|^\s*[*][*][ ]')
       ind = HeadOpIndent(l, cl, ind > ind2 + 1 ? ind2 + 1 : ind)
     elseif line =~ '^\s*\%(&&\|||\)' || ind - 2 > ind2
       ind -= 3
