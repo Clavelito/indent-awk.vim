@@ -3,8 +3,8 @@ vim9script noclear
 # Vim indent file
 # Language:        AWK Script
 # Author:          Clavelito <maromomo@hotmail.com>
-# Last Change:     Mon, 12 Dec 2022 16:37:05 +0900
-# Version:         3.3
+# Last Change:     Wed, 14 Dec 2022 17:25:40 +0900
+# Version:         3.4
 # License:         http://www.apache.org/licenses/LICENSE-2.0
 # Description:
 #                  g:awk_indent_switch_labels = 0
@@ -114,12 +114,12 @@ def ContinueLineIndent(alnum: number, cline: string): list<any>
           '\%(\[[^[]*\)\{' .. (ms > 0 ? ms - 1 : 0) .. '}\[\s*\zs\S')
   elseif line =~ '^\s*[*][*]=\@!.*\%(\w\|)\|\]\)\s*\\$'
     ind += 1
-  elseif line =~ '[^<>=!]==\@!.*\%(\w\|)\|\]\)\s*\\$'
+  elseif line =~ '[^<>=!]==\@!.*\%(\w\|)\|\]\|++\|--\)\s*\\$'
       && (cline =~ '^\s*=' || cline =~ '^\s*[-+/*%^][ ]\|^\s*[*][*][ ]')
     ind = GetMatchWidth(line, lnum, '=')
   elseif line =~ '[^<>=!]==\@!\s*[^\\[:blank:]]'
       && IsTailContinue(line, true) && !IsTailContinue(pline)
-      || line =~ '[^<>=!]==\@!.*\%(\w\|)\|\]\)\s*\\$' && cline =~ '^\s*[-+/*%^]'
+      || line =~ '[^<>=!]==\@!.*\%(\w\|)\|\]\|++\|--\)\s*\\$' && cline =~ '^\s*[-+/*%^]'
     ind = GetMatchWidth(line, lnum, '[^<>=!]=\s*\zs.')
     ind = !Signed(line, lnum, '[^<>=!]=\s*\zs.') ? HeadOpIndent(line, cline, ind) : ind
   elseif line =~ '^\s\+\h\w*\s\+[^-+/*%^=\\[:blank:]]'
@@ -370,8 +370,8 @@ def SearchDoLoop(snum: number): number
 enddef
 
 def TailBslashIndent(l: string, i: number): number
-  var ind = strdisplaywidth(l[ : match(l, '(\s*\\$')])
-  var len = strdisplaywidth(l[ : -2]) - ind
+  var ind = strdisplaywidth(strpart(l, 0, match(l, '(\zs\s*\\$')))
+  var len = strdisplaywidth(strpart(l, 0, strlen(l) - 1)) - ind
   if g:awk_indent_tail_bslash < 0 && len >= g:awk_indent_tail_bslash * -1
       || g:awk_indent_tail_bslash > 0 && len < g:awk_indent_tail_bslash
     ind = i > 0 ? i + shiftwidth() : shiftwidth() * 2
@@ -388,7 +388,7 @@ def NestContinueIndent(l: string, n: number, cl: string,
   if !p[0] || !p[1] || p[0] == n
     return indent(n)
   endif
-  var str = CleanPair(HideStrComment(getline(p[0]))[ : p[1] - 1], i1, i2)
+  var str = CleanPair(strpart(HideStrComment(getline(p[0])), 0, p[1]), i1, i2)
   if !PairBalance(str, i1, i2) && UnclosedPair(str, i1, i2)
     return NestContinueIndent(str, p[0], cl, i1, i2)
   elseif str =~ i1 .. '.'
@@ -409,7 +409,7 @@ def OpenParenIndent(l: string, n: number, cl: string): number
   var pt = '\%(([^(]*\)\{' .. (ms > 0 ? ms - 1 : 0) .. '}'
   var line = CleanPair(l, '(', ')')
   var ind = GetMatchWidth(line, n, pt .. '(\%(\s*\zs[^\\[:blank:]]\|\zs.\)')
-  if line =~ '[^-+/*%^=,&|([:blank:]]\s*\\$'
+  if line =~ '\%([^-+/*%^=,&|([:blank:]]\|++\|--\)\s*\\$'
     var ind2 = GetMatchWidth(line, n, pt .. '(\zs.')
     if line =~ '[^<>=!]==\@!\|^\s*[-+/*%^]' && cl =~ '^\s*[-+/*%^]'
         && (!Signed(line, n, pt .. '(\s*\zs.') || cl =~ '^\s*[-+/*%^][ ]\|^\s*[*][*][ ]')
@@ -423,9 +423,11 @@ enddef
 
 def HeadOpIndent(line: string, cline: string, aind: number): number
   var ind = aind
-  if line =~ '[-+/*%^=~]\s*\\$'
+  if line =~ '[-+/*%^=~]\s*\\$' && line !~ '\%(++\|--\)\s*\\$'
   elseif cline =~ '^\s*[-+/*%^][ ]\|^\s*[*][*][ ]'
     ind -= 2
+  elseif cline =~ '^\s*[-+/*%^]' && ms > ind
+    ind = ms - 1
   elseif cline =~ '^\s*[-+/*%^]'
     ind -= 1
   endif
@@ -467,11 +469,13 @@ def PairBalance(line: string, i1: string, i2: string): number
 enddef
 
 def GetMatchWidth(line: string, lnum: number, item: string): number
+  ms = 0
   return strdisplaywidth(strpart(getline(lnum), 0, match(line, item)))
 enddef
 
 def Signed(line: string, lnum: number, item: string): bool
-  return getline(lnum)[match(line, item) : ] =~ '^[-+]'
+  ms = GetMatchWidth(line, lnum, item .. '\{0}\%(++\|--\)\zs.')
+  return strpart(getline(lnum), match(line, item)) =~ '^\%(++\@!\|--\@!\)'
 enddef
 
 def IsOptSwitchEnable(): bool
@@ -479,7 +483,7 @@ def IsOptSwitchEnable(): bool
 enddef
 
 def NoStrAfterParen(aline: string): bool
-  var line = CleanPair(aline[matchend(aline, '(') : ], '(', ')')
+  var line = CleanPair(strpart(aline, matchend(aline, '(')), '(', ')')
   return matchstr(line, ').*$') =~ '^)\s*$'
 enddef
 
@@ -505,7 +509,7 @@ enddef
 
 def IsStrComment(): bool
   var line = HideStrComment(getline('.'))
-  return strlen(line) < col('.') || line[ : col('.') - 1 ] =~# 'x$'
+  return strlen(line) < col('.') || strpart(line, 0, col('.')) =~# 'x$'
 enddef
 
 const bfrsla = '\%([^])_a-zA-Z0-9[:blank:]]\|\<\%(case\|printf\=\|return\)\|^\)'
