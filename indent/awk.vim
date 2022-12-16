@@ -3,8 +3,8 @@ vim9script noclear
 # Vim indent file
 # Language:        AWK Script
 # Author:          Clavelito <maromomo@hotmail.com>
-# Last Change:     Wed, 14 Dec 2022 17:25:40 +0900
-# Version:         3.4
+# Last Change:     Fri, 16 Dec 2022 16:50:20 +0900
+# Version:         3.5
 # License:         http://www.apache.org/licenses/LICENSE-2.0
 # Description:
 #                  g:awk_indent_switch_labels = 0
@@ -120,8 +120,8 @@ def ContinueLineIndent(alnum: number, cline: string): list<any>
   elseif line =~ '[^<>=!]==\@!\s*[^\\[:blank:]]'
       && IsTailContinue(line, true) && !IsTailContinue(pline)
       || line =~ '[^<>=!]==\@!.*\%(\w\|)\|\]\|++\|--\)\s*\\$' && cline =~ '^\s*[-+/*%^]'
-    ind = GetMatchWidth(line, lnum, '[^<>=!]=\s*\zs.')
-    ind = !Signed(line, lnum, '[^<>=!]=\s*\zs.') ? HeadOpIndent(line, cline, ind) : ind
+    ind = GetMatchWidth(line, lnum, '[^<>=!]=\s*\%(++\@!\|--\@!\)\=\zs.')
+    ind = HeadOpIndent(line, cline, ind)
   elseif line =~ '^\s\+\h\w*\s\+[^-+/*%^=\\[:blank:]]'
       && IsTailContinue(line) && !IsTailContinue(pline)
     ind = GetMatchWidth(line, lnum, '\h\w*\s\+\zs\S')
@@ -379,8 +379,7 @@ def TailBslashIndent(l: string, i: number): number
   return ind
 enddef
 
-def NestContinueIndent(l: string, n: number, cl: string,
-      i1: string, i2: string): number
+def NestContinueIndent(l: string, n: number, cl: string, i1: string, i2: string): number
   var pos = getpos('.')
   cursor(n, matchend(CleanPair(l, i1, i2), '^.*' .. i2))
   var p = searchpairpos(i1, '', i2, 'bW', 'IsStrComment()')
@@ -408,12 +407,13 @@ enddef
 def OpenParenIndent(l: string, n: number, cl: string): number
   var pt = '\%(([^(]*\)\{' .. (ms > 0 ? ms - 1 : 0) .. '}'
   var line = CleanPair(l, '(', ')')
-  var ind = GetMatchWidth(line, n, pt .. '(\%(\s*\zs[^\\[:blank:]]\|\zs.\)')
+  var ind = GetMatchWidth(line, n, pt .. '(\%(\s*\%(++\@!\|--\@!\)\=\zs[^\\[:blank:]]\|\zs.\)')
   if line =~ '\%([^-+/*%^=,&|([:blank:]]\|++\|--\)\s*\\$'
     var ind2 = GetMatchWidth(line, n, pt .. '(\zs.')
-    if line =~ '[^<>=!]==\@!\|^\s*[-+/*%^]' && cl =~ '^\s*[-+/*%^]'
-        && (!Signed(line, n, pt .. '(\s*\zs.') || cl =~ '^\s*[-+/*%^][ ]\|^\s*[*][*][ ]')
+    if line =~ '[^<>=!]==\@!\|^\s*[-+/*%^]' && cl =~ '^\s*[-+/*%^][ ]\|^\s*[*][*][ ]'
       ind = HeadOpIndent(l, cl, ind > ind2 + 1 ? ind2 + 1 : ind)
+    elseif line =~ '[^<>=!]==\@!\|^\s*[-+/*%^]' && cl =~ '^\s*[-+/*%^]'
+      ind = HeadOpIndent(l, cl, ind)
     elseif line =~ '^\s*\%(&&\|||\)' || ind - 2 > ind2
       ind -= 3
     endif
@@ -426,8 +426,6 @@ def HeadOpIndent(line: string, cline: string, aind: number): number
   if line =~ '[-+/*%^=~]\s*\\$' && line !~ '\%(++\|--\)\s*\\$'
   elseif cline =~ '^\s*[-+/*%^][ ]\|^\s*[*][*][ ]'
     ind -= 2
-  elseif cline =~ '^\s*[-+/*%^]' && ms > ind
-    ind = ms - 1
   elseif cline =~ '^\s*[-+/*%^]'
     ind -= 1
   endif
@@ -469,13 +467,7 @@ def PairBalance(line: string, i1: string, i2: string): number
 enddef
 
 def GetMatchWidth(line: string, lnum: number, item: string): number
-  ms = 0
   return strdisplaywidth(strpart(getline(lnum), 0, match(line, item)))
-enddef
-
-def Signed(line: string, lnum: number, item: string): bool
-  ms = GetMatchWidth(line, lnum, item .. '\{0}\%(++\|--\)\zs.')
-  return strpart(getline(lnum), match(line, item)) =~ '^\%(++\@!\|--\@!\)'
 enddef
 
 def IsOptSwitchEnable(): bool
