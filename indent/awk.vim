@@ -3,8 +3,8 @@ vim9script noclear
 # Vim indent file
 # Language:        AWK Script
 # Author:          Clavelito <maromomo@hotmail.com>
-# Last Change:     Fri, 16 Dec 2022 16:50:20 +0900
-# Version:         3.5
+# Last Change:     Thu, 31 Oct 2024 19:27:40 +0900
+# Version:         3.6
 # License:         http://www.apache.org/licenses/LICENSE-2.0
 # Description:
 #                  g:awk_indent_switch_labels = 0
@@ -170,6 +170,8 @@ def PrevLineIndent(line: string, lnum: number, sline: string, aind: number): num
   elseif line =~# '^\s*\%(if\|while\)\s*(' && sline !~ '^\s*\%(&&\|||\)'
       && CleanPair(line, '(', ')') =~# '^\s*\%(if\|while\)\s*('
     ind = StatContinueIndent(lnum, ind)
+  elseif line =~# '^\s*for\s*(.*;\s*$' && CleanPair(line, '(', ')') =~# '^\s*for\s*('
+    ind = GetMatchWidth(line, lnum, '(\s*\zs\S')
   endif
   return ind
 enddef
@@ -233,7 +235,8 @@ def JoinContinueLine(lnum: number, ...line: list<string>): list<any>
       continue
     endif
     pline = HideStrComment(pline)
-    if !IsTailContinue(pline)
+    if rlist[0] =~ ')' && PairBalance(rlist[0], ')', '(') > 0 && pline =~ ';\s*$'
+    elseif !IsTailContinue(pline)
       break
     endif
     rlist[1] = pn
