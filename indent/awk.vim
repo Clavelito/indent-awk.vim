@@ -3,8 +3,8 @@ vim9script noclear
 # Vim indent file
 # Language:        AWK Script
 # Author:          Clavelito <maromomo@hotmail.com>
-# Last Change:     Thu, 06 Feb 2025 14:47:39 +0900
-# Version:         3.7
+# Last Change:     Wed, 21 May 2025 16:57:35 +0900
+# Version:         3.8
 # License:         http://www.apache.org/licenses/LICENSE-2.0
 # Description:
 #                  g:awk_indent_switch_labels = 0
@@ -277,7 +277,7 @@ def PreMorePrevLine(pline: string, pnum: number, line: string, lnum: number): li
   if IsTailCloseBrace(line)
     rlist = GetStartBraceLine(lnum, ms)
     rlist = GetFrontOfBraceLine(rlist[0], rlist[1])
-  elseif line =~# '^\s*}\=\s*while\>' || line =~# '\S\s*[};]\s*while\>'
+  elseif line =~# '^\s*}\=\s*while\>'
     rlist[1] = GetDoLine(lnum)
     rlist[0] = getline(rlist[1])
   elseif line =~# '^\s*}\=\s*else\>'
@@ -334,9 +334,7 @@ def AvoidExpr(flag: number): bool
     var pi = indent(pn)
     var ci = indent('.')
     return ci > pi + shiftwidth() && head =~ '^\s*}\s*$' && g:awk_indent_curly_braces
-        || ci > pi && head =~ '^\s*}\s*$' && !g:awk_indent_curly_braces
-        || ci > pi && head =~ '^\s*$'
-        || ci < pi && head =~ '\S\s[};]\s*$'
+        || ci > pi && head =~ '^\s*}\=\s*$' && !g:awk_indent_curly_braces
         || IsStrComment()
   endif
   return indent('.') > indent(pn) || IsStrComment()
