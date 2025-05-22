@@ -3,8 +3,8 @@ vim9script noclear
 # Vim indent file
 # Language:        AWK Script
 # Author:          Clavelito <maromomo@hotmail.com>
-# Last Change:     Wed, 21 May 2025 16:57:35 +0900
-# Version:         3.8
+# Last Change:     Thu, 22 May 2025 13:14:39 +0900
+# Version:         3.9
 # License:         http://www.apache.org/licenses/LICENSE-2.0
 # Description:
 #                  g:awk_indent_switch_labels = 0
@@ -334,7 +334,8 @@ def AvoidExpr(flag: number): bool
     var pi = indent(pn)
     var ci = indent('.')
     return ci > pi + shiftwidth() && head =~ '^\s*}\s*$' && g:awk_indent_curly_braces
-        || ci > pi && head =~ '^\s*}\=\s*$' && !g:awk_indent_curly_braces
+        || ci > pi && head =~ '^\s*}\s*$' && !g:awk_indent_curly_braces
+        || ci > pi && head =~ '^\s*$'
         || IsStrComment()
   endif
   return indent('.') > indent(pn) || IsStrComment()
