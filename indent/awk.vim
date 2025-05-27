@@ -3,8 +3,8 @@ vim9script noclear
 # Vim indent file
 # Language:        AWK Script
 # Author:          Clavelito <maromomo@hotmail.com>
-# Last Change:     Fri, 23 May 2025 14:01:32 +0900
-# Version:         3.10
+# Last Change:     Tue, 27 May 2025 13:36:01 +0900
+# Version:         3.11
 # License:         http://www.apache.org/licenses/LICENSE-2.0
 # Description:
 #                  g:awk_indent_switch_labels = 0
@@ -276,8 +276,7 @@ def PreMorePrevLine(pline: string, pnum: number, line: string, lnum: number): li
   var rlist = [line, lnum]
   if IsTailCloseBrace(line)
     rlist = GetStartBraceLine(lnum, ms)
-    rlist = GetFrontOfBraceLine(rlist[0], rlist[1])
-  elseif line =~# '^\s*}\=\s*while\>' || line =~# '[^}[:blank:]]\s*;\s*while\>'
+  elseif line =~# '^\s*}\=\s*while\>'
     rlist[1] = GetDoLine(lnum)
     rlist[0] = getline(rlist[1])
   elseif line =~# '^\s*}\=\s*else\>'
@@ -311,33 +310,12 @@ def GetStartBraceLine(alnum: number, ...col: list<any>): list<any>
   return rlist
 enddef
 
-def GetFrontOfBraceLine(line: string, lnum: number): list<any>
-  var rlist = [line, lnum]
-  if rlist[0] =~# '^\s*{'
-    var plist = JoinContinueLine(rlist[1])
-    if indent(plist[1]) <= indent(rlist[1]) && plist[0] =~# '^\s*do\s*$'
-      rlist = plist
-    endif
-  endif
-  return rlist
-enddef
-
 def AvoidExpr(flag: number): bool
   if flag == 1
     return indent('.') >= indent(pn) || IsStrComment()
   elseif flag == 2
     return indent('.') > indent(pn)
         || getline('.') =~# '^\s*}\=\s*else\s\+if\>'
-        || IsStrComment()
-  elseif flag == 3
-    var head = strpart(getline('.'), 0, col('.') - 1)
-    var pi = indent(pn)
-    var ci = indent('.')
-    return ci > pi + shiftwidth() && head =~ '^\s*}\s*$' && g:awk_indent_curly_braces
-        || ci > pi && head =~ '^\s*}\s*$' && !g:awk_indent_curly_braces
-        || ci > pi && head =~ '^\s*$'
-        || ci != pi && head =~# '^\s*do\>\%(.*\<while\>\)\@!'
-        || ci > pi + shiftwidth() && head =~ '[^}[:blank:]]\s*;\s*$'
         || IsStrComment()
   endif
   return indent('.') > indent(pn) || IsStrComment()
@@ -376,16 +354,21 @@ enddef
 def SearchDoLoop(snum: number): number
   var lnum = 0
   var onum = 0
-  while search('\C^\s*do\>', 'ebW') > 0
+  while search('\C^\s*do\>\ze\%(\_s*#.*\_$\)*\%(\_s*{\ze\)\=', 'ebW') > 0
     var pos = getpos('.')
     pn = pos[1]
-    lnum = searchpair('\C\<do\>', '', '\C\<while\>', 'W', 'AvoidExpr(3)', snum)
+    lnum = searchpair('\C\<do\>', '', '\C^\s*\zs\<while\>\|[};]\s*\zs\<while\>', 'W', 'AvoidExpr(0)', snum)
+    setpos('.', pos)
     if lnum < onum || lnum < 1
       break
     elseif lnum == snum
-      onum = pos[1]
+      if getline('.') =~# '^\s*do\>'
+        onum = pos[1]
+      else
+        onum = search('\C^\s*do\>', 'bW')
+      endif
+      break
     endif
-    setpos('.', pos)
   endwhile
   return onum
 enddef
@@ -474,7 +457,7 @@ enddef
 
 def IsTailCloseBrace(line: string): bool
   ms = line =~ '\S\s*;\=\s*}' && PairBalance(line, '}', '{') > 0
-         ? matchend(line, '\S\%(\s*;\=\s*}\ze\%(\s*;\=\s*while\s*([^{};]\+)\)\=\)\+') : 0
+         ? matchend(line, '\S\%(\s*;\=\s*}\)\+') : 0
   return ms > 0
 enddef
 
