@@ -3,8 +3,8 @@ vim9script noclear
 # Vim indent file
 # Language:        AWK Script
 # Author:          Clavelito <maromomo@hotmail.com>
-# Last Change:     Tue, 27 May 2025 13:36:01 +0900
-# Version:         3.11
+# Last Change:     Wed, 28 May 2025 13:32:18 +0900
+# Version:         3.12
 # License:         http://www.apache.org/licenses/LICENSE-2.0
 # Description:
 #                  g:awk_indent_switch_labels = 0
@@ -352,12 +352,11 @@ def GetDoLine(alnum: number, ...flag: list<bool>): number
 enddef
 
 def SearchDoLoop(snum: number): number
-  var lnum = 0
   var onum = 0
   while search('\C^\s*do\>\ze\%(\_s*#.*\_$\)*\%(\_s*{\ze\)\=', 'ebW') > 0
     var pos = getpos('.')
     pn = pos[1]
-    lnum = searchpair('\C\<do\>', '', '\C^\s*\zs\<while\>\|[};]\s*\zs\<while\>', 'W', 'AvoidExpr(0)', snum)
+    var lnum = searchpair('\C\<do\>', '', '\C^\s*\zs\<while\>\|[};]\s*\zs\<while\>', 'W', 'AvoidExpr(0)', snum)
     setpos('.', pos)
     if lnum < onum || lnum < 1
       break
