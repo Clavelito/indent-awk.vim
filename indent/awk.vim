@@ -3,8 +3,8 @@ vim9script noclear
 # Vim indent file
 # Language:        AWK Script
 # Author:          Clavelito <maromomo@hotmail.com>
-# Last Change:     Wed, 28 May 2025 13:32:18 +0900
-# Version:         3.12
+# Last Change:     Sat, 31 May 2025 17:58:47 +0900
+# Version:         3.13
 # License:         http://www.apache.org/licenses/LICENSE-2.0
 # Description:
 #                  g:awk_indent_switch_labels = 0
@@ -196,9 +196,10 @@ def CurrentLineIndent(cline: string, line: string, lnum: number,
       || IsTailCloseBrace(pline)
       && GetStartBraceLine(pnum, ms)[0] =~# '^\s*case\>'))
     ind -= shiftwidth()
-  elseif cline =~ '^\s*{\s*\%(#.*\)\=$'
+  elseif cline =~ '^\s*{'
       && (line =~ '\\$'
       || !g:awk_indent_curly_braces
+      && UnclosedPair(HideStrComment(cline), '{', '}')
       && ((line =~# '^\s*\%(if\|}\=\s*else\s\+if\|for\)\s*(.*)\s*$'
       || line =~# '^\s*while\s*(.*)\s*$' && !GetDoLine(lnum, true)
       || line =~# '^\s*switch\s*(.*)\s*$' && IsOptSwitchEnable())
@@ -326,7 +327,8 @@ def GetIfLine(alnum: number, ...line: list<string>): number
   var pos = getpos('.')
   pn = alnum
   cursor(!empty(line) ? 0 : alnum, 1)
-  if !empty(line) && line[0] =~# '^\s*\%(}\|if\>\|else\>\|{\s*\%(#.*\)\=$\)'
+  if !empty(line) && (line[0] =~# '^\s*\%(}\|if\>\|else\>\)'
+      || line[0] =~ '^\s*{' && UnclosedPair(HideStrComment(line[0]), '{', '}'))
     lnum = searchpair('\C\<if\>', '', '\C\<else\>', 'bW', 'AvoidExpr(0)')
   elseif !empty(line)
     lnum = searchpair('\C\<if\>', '', '\C\<else\>', 'bW', 'AvoidExpr(1)')
