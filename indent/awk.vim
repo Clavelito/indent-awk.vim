@@ -3,8 +3,8 @@ vim9script noclear
 # Vim indent file
 # Language:        AWK Script
 # Author:          Clavelito <maromomo@hotmail.com>
-# Last Change:     Sat, 31 May 2025 17:58:47 +0900
-# Version:         3.13
+# Last Change:     Thu, 10 Jul 2025 09:05:42 +0900
+# Version:         3.14
 # License:         http://www.apache.org/licenses/LICENSE-2.0
 # Description:
 #                  g:awk_indent_switch_labels = 0
@@ -223,11 +223,14 @@ enddef
 
 def JoinContinueLine(lnum: number, ...line: list<string>): list<any>
   var rlist: list<any>
-  if empty(line)
+  if !line
     rlist = SkipCommentLine(lnum)
   else
     rlist[0] = line[0]
     rlist[1] = lnum
+  endif
+  if IsTailContinue(rlist[0]) && (!line || getline(v:lnum) !~ '^\s*{' && !PairBalance(rlist[0], ')', '('))
+    return rlist
   endif
   pn = rlist[1]
   while PrevNonBlank(pn)
@@ -249,10 +252,10 @@ enddef
 def SkipCommentLine(alnum: number, ...aline: list<string>): list<any>
   var lnum: number
   var line: string
-  if empty(aline) && PrevNonBlank(alnum)
+  if !aline && PrevNonBlank(alnum)
     lnum = pn
     line = getline(lnum)
-  elseif empty(aline)
+  elseif !aline
     lnum = 0
     line = ''
   else
@@ -286,7 +289,8 @@ def PreMorePrevLine(pline: string, pnum: number, line: string, lnum: number): li
   elseif line =~ '^\s\+}'
     rlist = GetStartBraceLine(lnum)
   endif
-  if rlist[0] =~# '^\s*do\>' && !GetDoLine(lnum, rlist[1] == lnum ? false : true)
+  rlist[0] = HideStrComment(rlist[0])
+  if rlist[0] =~# '^\s*do\>\%(.*[};]\s*while\s*(\)\@!' && !GetDoLine(lnum, rlist[1] == lnum ? false : true)
     plist[1] = 0
   elseif rlist[1] != lnum
     plist = JoinContinueLine(rlist[1])
@@ -297,12 +301,12 @@ enddef
 
 def GetStartBraceLine(alnum: number, ...col: list<any>): list<any>
   var pos = getpos('.')
-  cursor(alnum, !empty(col) ? col[0] : 1)
+  cursor(alnum, !!col ? col[0] : 1)
   var lnum = searchpair('{', '', '}', 'bW', 'IsStrComment()')
   setpos('.', pos)
   var rlist = ['', alnum]
   if lnum > 0
-    rlist = JoinContinueLine(lnum, getline(lnum))
+    rlist = JoinContinueLine(lnum, HideStrComment(getline(lnum)))
     if rlist[1] > 0 && len(col) < 2 && rlist[0] =~# '^\s*}\=\s*else\>'
       rlist[1] = GetIfLine(rlist[1])
       rlist[0] = getline(rlist[1])
@@ -326,11 +330,11 @@ def GetIfLine(alnum: number, ...line: list<string>): number
   var lnum: number
   var pos = getpos('.')
   pn = alnum
-  cursor(!empty(line) ? 0 : alnum, 1)
-  if !empty(line) && (line[0] =~# '^\s*\%(}\|if\>\|else\>\)'
+  cursor(!!line ? 0 : alnum, 1)
+  if !!line && (line[0] =~# '^\s*\%(}\|if\>\|else\>\)'
       || line[0] =~ '^\s*{' && UnclosedPair(HideStrComment(line[0]), '{', '}'))
     lnum = searchpair('\C\<if\>', '', '\C\<else\>', 'bW', 'AvoidExpr(0)')
-  elseif !empty(line)
+  elseif !!line
     lnum = searchpair('\C\<if\>', '', '\C\<else\>', 'bW', 'AvoidExpr(1)')
   else
     lnum = searchpair('\C\<if\>', '', '\C\<else\>', 'bW', 'AvoidExpr(2)')
@@ -339,38 +343,35 @@ def GetIfLine(alnum: number, ...line: list<string>): number
   if lnum > 0
     return lnum
   endif
-  return !empty(line) ? 0 : alnum
+  return !!line ? 0 : alnum
 enddef
 
 def GetDoLine(alnum: number, ...flag: list<bool>): number
   var pos = getpos('.')
-  cursor(!empty(flag) && !flag[0] ? 0 : alnum, 1)
-  var lnum = SearchDoLoop(alnum)
+  cursor(!!flag && !flag[0] ? 0 : alnum, 1)
+  var lnum = SearchDo(alnum)
   setpos('.', pos)
   if lnum > 0
     return lnum
   endif
-  return !empty(flag) ? 0 : alnum
+  return !!flag ? 0 : alnum
 enddef
 
-def SearchDoLoop(snum: number): number
-  var onum = 0
-  while search('\C^\s*do\>\ze\%(\_s*#.*\_$\)*\%(\_s*{\ze\)\=', 'ebW') > 0
-    var pos = getpos('.')
-    pn = pos[1]
-    var lnum = searchpair('\C\<do\>', '', '\C^\s*\zs\<while\>\|[};]\s*\zs\<while\>', 'W', 'AvoidExpr(0)', snum)
-    setpos('.', pos)
-    if lnum < onum || lnum < 1
-      break
-    elseif lnum == snum
-      if getline('.') =~# '^\s*do\>'
-        onum = pos[1]
-      else
-        onum = search('\C^\s*do\>', 'bW')
-      endif
-      break
+def SearchDo(snum: number): number
+  var onum: number
+  if search('\C^\s*\zs\<do\>', 'bW', 0, 0, 'indent(".") > indent(snum)') > 0
+      && HideStrComment(getline('.')) =~# '^\s*do\>\%(.*[};]\s*while\s*(\)\@!'
+    var dnum = line('.')
+    if !!g:awk_indent_curly_braces && search('\C\<do\>\ze\%(\_s*#.*\_$\)*\%(\_s*{\ze\)\=', 'ceW') > 0
+      pn = line('.')
+    else
+      pn = dnum
     endif
-  endwhile
+    var lnum = searchpair('\C^\s*\zs\<do\>', '', '\C^\s*}\=\s*\zs\<while\>', 'W', 'AvoidExpr(0)', snum)
+    if lnum == snum
+      onum = dnum
+    endif
+  endif
   return onum
 enddef
 
@@ -453,7 +454,7 @@ def ElseIndent(l: string, n: number): number
 enddef
 
 def IsTailContinue(line: string, ...f: list<bool>): bool
-  return !empty(f) ? line =~ '\%([^<>=!]==\@!\)\@2<!' .. pt2 : line =~ pt2
+  return !!f ? line =~ '\%([^<>=!]==\@!\)\@2<!' .. pt2 : line =~ pt2
 enddef
 
 def IsTailCloseBrace(line: string): bool
